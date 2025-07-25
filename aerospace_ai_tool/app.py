@@ -1,6 +1,7 @@
 import google.generativeai as genai
+
 # Set Gemini API key and model
-GEMINI_API_KEY = 'AIzaSyAj64KkRaUndUuy7zRuK5FgSMRiQtQvJhw'
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_MODEL = 'gemini-2.5-flash'
 
 # Gemini AI wrapper
@@ -12,6 +13,8 @@ class GeminiAI:
         response = self.model.generate_content(prompt)
         return response.text
 
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY environment variable not set. Please set it in your environment.")
 ai_model = GeminiAI(GEMINI_API_KEY, GEMINI_MODEL)
 from flask import Flask, render_template, request, jsonify
 import os
