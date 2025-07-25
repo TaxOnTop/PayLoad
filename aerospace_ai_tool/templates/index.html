@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aerospace AI Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .result { background: #f4f4f4; padding: 1em; border-radius: 8px; margin-top: 1em; }
+    </style>
+</head>
+<body>
+    <h1>Aerospace Physics Assistant (Orbital Mechanics Demo)</h1>
+    <form method="post" id="inputForm">
+        <label>Planet:
+            <select name="planet" id="planet-select">
+                <option value="Earth">Earth</option>
+                <option value="Mars">Mars</option>
+                <option value="Jupiter">Jupiter</option>
+                <option value="Moon">Moon</option>
+                <option value="Venus">Venus</option>
+            </select>
+        </label><br><br>
+        <label>Initial Orbit Radius (m):
+            <input type="range" name="r1" min="6.4e6" max="4.2e7" step="1e5" value="6771000" oninput="r1val.value = this.value">
+            <output name="r1val">6771000</output>
+        </label><br><br>
+        <label>Target Orbit Radius (m):
+            <input type="range" name="r2" min="6.4e6" max="4.2e7" step="1e5" value="42164000" oninput="r2val.value = this.value">
+            <output name="r2val">42164000</output>
+        </label><br><br>
+        <label>Spacecraft Mass (kg):
+            <input type="range" name="mass" min="100" max="100000" step="100" value="10000" oninput="massval.value = this.value">
+            <output name="massval">10000</output>
+        </label><br><br>
+        <label>Specific Impulse (s):
+            <input type="range" name="Isp" min="100" max="500" step="1" value="300" oninput="ispval.value = this.value">
+            <output name="ispval">300</output>
+        </label><br><br>
+        <label>Thrust (N):
+            <input type="range" name="thrust" min="100" max="100000" step="100" value="10000" oninput="thrustval.value = this.value">
+            <output name="thrustval">10000</output>
+        </label><br><br>
+        <button type="submit">Calculate</button>
+    </form>
+    <h2>Results ({{ result.planet }})</h2>
+    <script>
+        // Keep output values in sync with sliders
+        document.querySelectorAll('input[type=range]').forEach(function(slider) {
+            slider.oninput = function() {
+                this.nextElementSibling.value = this.value;
+            };
+        });
+    </script>
+    {% if error %}
+    <div class="result" style="background:#ffe0e0; color:#900;">
+        <b>Error:</b> {{ error }}
+    </div>
+    {% endif %}
+    {% if result %}
+    <div class="result" style="display: flex; flex-direction: row; gap: 2em; align-items: flex-start;">
+        <div style="flex: 1; min-width: 250px;">
+            <h2>Results</h2>
+            <p><b>Delta-v (Hohmann):</b> {{ result.delta_v | round(2) }} m/s</p>
+            <p><b>Fuel Mass Required:</b> {{ result.fuel_mass | round(2) }} kg</p>
+            <p><b>Total Burn Time:</b> {{ result.burn_time | round(2) }} s</p>
+            <h3>Step-by-Step Breakdown</h3>
+            <ol style="font-size: 0.98em;">
+            {% for step in result.steps %}
+                <li>{{ step }}</li>
+            {% endfor %}
+            </ol>
+            <h3>Gemini/OpenRouter AI Explanation</h3>
+            <pre style="white-space: pre-wrap;">{{ result.ai }}</pre>
+        </div>
+        <div style="flex: 1; min-width: 350px;">
+            <h3>Visualizations</h3>
+            <svg width="400" height="260" style="background:#eef; border-radius:8px;">
+                <!-- Orbits and normal graphics -->
+                {% set r1_px = 60 + 120 * ((result.r1-6.4e6)/(4.2e7-6.4e6)) %}
+                {% set r2_px = 60 + 120 * ((result.r2-6.4e6)/(4.2e7-6.4e6)) %}
+                <circle cx="200" cy="130" r="{{ r2_px }}" fill="none" stroke="#888" stroke-width="2" />
+                <text x="200" y="{{ 130 - r2_px }}" font-size="13" fill="#888" text-anchor="middle">Target Orbit</text>
+                <circle cx="200" cy="130" r="{{ r1_px }}" fill="none" stroke="#1e90ff" stroke-width="3" />
+                <text x="200" y="{{ 130 - r1_px }}" font-size="13" fill="#1e90ff" text-anchor="middle">Initial Orbit</text>
+                <!-- Earth -->
+                <circle cx="200" cy="130" r="40" fill="#3af" stroke="#0af" stroke-width="2" />
+                <text x="200" y="135" font-size="14" fill="#fff" text-anchor="middle">Earth</text>
+                <!-- Animated Spacecraft (rocket) moving around initial orbit -->
+                <g id="rocket-group">
+                  <circle id="rocket" r="8" fill="#fa0" stroke="#c60" stroke-width="2" />
+                  <animateMotion dur="3s" repeatCount="indefinite">
+                    <mpath xlink:href="#orbitPath" />
+                  </animateMotion>
+                </g>
+                <!-- Orbit path for animation -->
+                <path id="orbitPath" d="M {{ 200 + r1_px }} 130
+                  a {{ r1_px }} {{ r1_px }} 0 1 1 {{ -2*r1_px }} 0
+                  a {{ r1_px }} {{ r1_px }} 0 1 1 {{ 2*r1_px }} 0" fill="none" stroke="none" />
+                <!-- Transfer Arrow -->
+                <defs>
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#f33" />
+                  </marker>
+                </defs>
+                <line x1="{{ 200 + r1_px }}" y1="130" x2="{{ 200 + r2_px }}" y2="130" stroke="#f33" stroke-width="4" marker-end="url(#arrowhead)" />
+                <text x="{{ (200 + r1_px + 200 + r2_px) / 2 }}" y="120" font-size="12" fill="#f33" text-anchor="middle">Transfer</text>
+                <!-- Thruster (size by thrust) -->
+                {% set thruster_px = 10 + 30 * ((result.thrust-100)/(100000-100)) %}
+                <rect x="{{ 200 + r1_px + 12 }}" y="{{ 130 - thruster_px/2 }}" width="{{ thruster_px }}" height="{{ thruster_px }}" fill="#888" stroke="#333" stroke-width="2" rx="4" />
+                <text x="{{ 200 + r1_px + 12 + thruster_px/2 }}" y="{{ 130 + thruster_px/2 + 16 }}" font-size="12" text-anchor="middle">Thruster</text>
+                <!-- Fuel bar -->
+                {% set fuel_pct = result.fuel_mass / (result.mass if result.mass > 0 else 1) %}
+                <rect x="350" y="200" width="30" height="50" fill="#ccc" stroke="#888" stroke-width="2" rx="6" />
+                <rect x="350" y="{{ 200 + 50 * (1-fuel_pct) }}" width="30" height="{{ 50 * fuel_pct }}" fill="#0c0" stroke="#080" stroke-width="1" rx="6" />
+                <text x="365" y="195" font-size="12" text-anchor="middle">Fuel</text>
+                <!-- Burn flame (if burning) -->
+                {% if result.burn_time > 0 %}
+                <ellipse cx="{{ 200 + r1_px + 12 + thruster_px + 10 }}" cy="130" rx="8" ry="16" fill="orange" opacity="0.7">
+                  <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1s" repeatCount="indefinite" />
+                </ellipse>
+                {% endif %}
+                <!-- Error animation removed as requested -->
+            </svg>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

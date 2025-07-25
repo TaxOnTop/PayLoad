@@ -1,0 +1,8 @@
+openai
+google-generativeai
+numpy
+sympy
+scipy
+matplotlib
+flask
+python-dotenv
