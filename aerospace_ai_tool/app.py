@@ -1,3 +1,18 @@
+import google.generativeai as genai
+# Set Gemini API key and model
+GEMINI_API_KEY = 'AIzaSyAj64KkRaUndUuy7zRuK5FgSMRiQtQvJhw'
+GEMINI_MODEL = 'gemini-2.5-flash'
+
+# Gemini AI wrapper
+class GeminiAI:
+    def __init__(self, api_key, model_name):
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(model_name)
+    def ask(self, prompt):
+        response = self.model.generate_content(prompt)
+        return response.text
+
+ai_model = GeminiAI(GEMINI_API_KEY, GEMINI_MODEL)
 from flask import Flask, render_template, request, jsonify
 import os
 import google.generativeai as genai
@@ -9,21 +24,7 @@ import logging
 app = Flask(__name__)
 
 
-# Set your Gemini API key here or via environment variable
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyAj64KkRaUndUuy7zRuK5FgSMRiQtQvJhw')
 
-
-
-
-# Use Gemini API for AI responses
-class GeminiAI:
-    def __init__(self, api_key):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
-    def ask(self, prompt, system_instructions=None):
-        response = self.model.generate_content(prompt)
-        return response.text
-ai_model = GeminiAI(GEMINI_API_KEY)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -42,10 +43,6 @@ def index():
             delta_v, dv1, dv2 = orbital_mechanics.hohmann_delta_v(r1, r2)
             fuel_mass, mf = orbital_mechanics.tsiolkovsky_fuel_mass(mass, delta_v, Isp)
             burn = orbital_mechanics.burn_time(fuel_mass, Isp, thrust)
-            prompt = f"""
-            A spacecraft with mass {mass} kg is transferring from a circular orbit of radius {r1} m to {r2} m. Calculate the required delta-v for a Hohmann transfer, the fuel mass required (Isp={Isp}s), and total burn time (thrust={thrust}N). Show all steps, equations, and explain the physics principles. Return JSON: {{ "steps": [...], "latex": "...", "summary": "...", "equations_used": [...] }}
-            """
-            ai_response = ai_model.ask(prompt)
             # Step-by-step breakdown
             steps = [
                 f"1. Calculate velocities for initial and target orbits:",
@@ -64,17 +61,24 @@ def index():
                 f"5. Burn time:",
                 f"   burn_time = fuel_mass / (thrust / (Isp * g0)) = {round(burn, 2)} s"
             ]
+
+            # Use Gemini AI to generate an explanation
+            ai_prompt = f"""
+            A spacecraft with mass {mass} kg is transferring from a circular orbit of radius {r1} m to {r2} m. The required delta-v for a Hohmann transfer, the fuel mass needed (Isp={Isp}s), and the total burn time (thrust={thrust}N) have been calculated. In 3-4 sentences, give a brief, clear, and friendly explanation of what these results mean for a general audience. Do not use JSON, LaTeX, or equations. Avoid technical jargon and keep it concise.
+            """
+            ai_explanation = ai_model.ask(ai_prompt)
+
             result = {
                 'delta_v': delta_v,
                 'fuel_mass': fuel_mass,
                 'burn_time': burn,
-                'ai': ai_response,
                 'r1': r1,
                 'r2': r2,
                 'mass': mass,
                 'Isp': Isp,
                 'thrust': thrust,
-                'steps': steps
+                'steps': steps,
+                'ai': ai_explanation
             }
         except Exception as e:
             error = str(e)

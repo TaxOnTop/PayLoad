@@ -1,0 +1,4 @@
+# Ignore environment files and files that may contain API keys
+.env
+*key*
+*secret*
